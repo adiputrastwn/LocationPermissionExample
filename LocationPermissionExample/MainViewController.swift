@@ -10,34 +10,40 @@ import CoreLocation
 
 class MainViewController: UIViewController {
     
-    // 1
     var locationManager: CLLocationManager?
     
     @IBAction func checkoutButtonDidPressed(_ sender: Any) {
-        // 3
         let authorizationStatus = CLLocationManager.authorizationStatus()
         
-        if authorizationStatus == .authorizedWhenInUse {
-            showConfirmationDialog()
+        if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
+            
+            locationManager = CLLocationManager()
+            locationManager?.delegate = self
+            locationManager?.desiredAccuracy = kCLLocationAccuracyBest
+            locationManager?.startUpdatingLocation()
+            
         } else if authorizationStatus == .notDetermined {
+            
+            locationManager = CLLocationManager()
             locationManager?.delegate = self
             locationManager?.requestWhenInUseAuthorization()
+            
         } else if authorizationStatus == .denied {
+            
             // show alert to enable permission from Settings
             showOpenLocationPermissionSettingsDialog()
+            
         }
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // 2
-        locationManager = CLLocationManager()
-        
     }
     
-    func showConfirmationDialog() {
-        showAlert(title: "Checkout", message: "Continue for checkout", viewController: self)
+    func showConfirmationDialog(coordinate: LatLng) {
+        showAlert(title: "Location",
+                  message: "Your location: \(coordinate.latitude), \(coordinate.longitude)",
+                  viewController: self)
     }
     
     func showOpenLocationPermissionSettingsDialog() {
@@ -71,11 +77,29 @@ extension MainViewController: CLLocationManagerDelegate {
             print("Restricted by parental control")
         case .denied:
             print("When user select option Dont't Allow")
-        case .authorizedWhenInUse:
+        case .authorizedWhenInUse, .authorizedAlways:
             print("When user select option Allow While Using App or Allow Once")
-            showConfirmationDialog()
+            print("Start counting")
+            locationManager?.startUpdatingLocation()
         default:
             print("default")
         }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        manager.stopUpdatingLocation()
+        manager.delegate = nil
+        locationManager = nil
+        
+        if let location = locations.first {
+            print("Found user's location: \(location)")
+            let coordinate = LatLng(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+            showConfirmationDialog(coordinate: coordinate)
+        }
+        
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: any Error) {
+        print("Error requesting location: \(error.localizedDescription)")
     }
 }
